@@ -11,7 +11,7 @@ for /f "delims=" %%i in ('dir /b /a-d "%zipfolder%\RTSBACKUP-*.zip"') do (
     set "file=!file:~11!"
     echo !cnt! - !file!
 )
-
+echo.
 rem Prompt the user to select a file to extract
 set /p "fileNum=Enter the number of the file you want to extract: "
 
