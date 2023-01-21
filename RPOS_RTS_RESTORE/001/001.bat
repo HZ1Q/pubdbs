@@ -1,32 +1,60 @@
-@echo on
-
-rem Set the directory where the ZIP files are located
-set zipfolder=%~dp0
+@echo off
+title RTS BACKUP RESTORE
 setlocal enabledelayedexpansion
-rem Get a list of all ZIP files in the directory that start with "RTSBACKUP-"
-set cnt=0
-for /f "delims=" %%i in ('dir /b /a-d "%zipfolder%\RTSBACKUP-*.zip"') do (
-    set /A cnt+=1
-    set "file=%%~i"
-    set "file=!file:~11!"
-    echo !cnt! - !file!
+
+
+rem Find all zip files matching the pattern "RTSBackup-.zip" in the current directory
+set file_list=0
+for /f "delims=" %%a in ('dir /b %~dp0RTSBackup-*.zip') do (
+set /a file_list+=1
+set file_!file_list!=%%a
 )
 
-rem Prompt the user to select a file to extract
-set /p "fileNum=Enter the number of the file you want to extract: "
-
-rem Extract the selected file
-set cnt=0
-for /f "delims=" %%i in ('dir /b /a-d "%zipfolder%\RTSBACKUP-*.zip"') do (
-    set /A cnt+=1
-    if !cnt!==%fileNum% (
-        set "file=%%~i"
-        set "file=!file:~11!"
-	start /min "***Compressing backup files...***      ***Do not close this window.***" /wait powershell Expand-Archive "%zipfolder%%FILENUM%" "%ZIPFILE%%FILENUM:~0,-1%"
-        echo The file RTSBACKUP-!file!.zip has been extracted successfully!
-        goto :break
-    )
+rem Display the list of zip files and ask the user to choose one
+set choice=0
+if %file_list% GTR 0 (
+echo.
+echo 	Available zip files in %~dp0 :
+echo.
+for /l %%i in (1,1,%file_list%) do echo 	%%i - !file_%%i!
+echo.
+set /p choice= 	Enter the number of the zip file to extract:
 )
-:break
 
+rem Extract the chosen zip file to a folder with the same name as the zip file
+if %choice% GTR 0 (
+set filename=!file_%choice%!
+set foldername=!filename:.zip=!
+rem mkdir "!foldername!" >nul 2>&1
+start /min /wait powershell Expand-Archive -Path '%~dp0!filename!' -DestinationPath '%~dp0%foldername%'
+)
+
+rem Check each file in the extracted folder against the restorex.conf file
+set conf_file=%~dp0restorex.conf
+if exist %conf_file% (
+	for /f "tokens=1,2 delims=," %%a in (%conf_file%) do (
+	set _a=%%a
+	set _b=%%b
+		if exist %~dp0%foldername%\%%a (
+		cls
+		echo.
+		echo Do you want to restore %%a to %%b? ^(y/n^)
+		echo We will back up the original file in %%b if it exists.
+		set /p "restore=Answer:"
+			timeout /t 1 >nul
+			if /i "!restore!"=="y" (
+			rem timeout /t 2 >nul
+			set date_str=%date:~4,2%%date:~7,2%%date:~10,4%
+			if exist "%%b\%%a" mkdir "%%b\Z_PRE_RTS_BACKUPS" >nul 2>&1
+			if exist "%%b\%%a" copy "%%b\%%a" "%%b\Z_PRE_RTS_BACKUPS\ORIGINAL_!date_str!_%%a"
+			copy %~dp0%foldername%\%%a "%%b"			
+			)
+
+		)
+
+	)
+
+)
+
+endlocal
 pause
